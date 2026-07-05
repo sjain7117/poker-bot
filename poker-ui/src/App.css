@@ -1,0 +1,603 @@
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600&display=swap");
+
+:root {
+  --bg: #0b0b0d;
+  --panel: #161618;
+  --panel-2: #1e1e21;
+  --line: #2a2a2e;
+  --text: #f5f5f7;
+  --muted: #8a8a90;
+  --faint: #5c5c62;
+  --gold: #e8c24b;
+  --up: #5fd08a;
+  --down: #e0705f;
+  --card: #fbfaf6;
+  --ink: #1a1a1a;
+  --red: #d1453b;
+  --pill: #1c1c1f;
+  --pill-hover: #26262a;
+}
+* {
+  box-sizing: border-box;
+  font-family: Inter, system-ui, sans-serif;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+}
+.app {
+  min-height: 100vh;
+  background: radial-gradient(120% 80% at 50% -20%, #17171b 0%, var(--bg) 55%);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 16px 32px;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+h1,
+h2,
+.brand,
+.pot__val,
+.card__rank,
+.seat__chips,
+.hero-info__label {
+  font-family: "Poppins", sans-serif;
+}
+
+.loading,
+.waiting {
+  color: var(--muted);
+  font-size: 14px;
+  padding: 24px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.toast {
+  background: #2a1414;
+  border: 1px solid #6b2b22;
+  color: #f0d3cd;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+/* ---------- setup ---------- */
+.setup {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 30px 26px;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.setup__brand {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+.setup__sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: -12px;
+}
+.setup__field label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 10px;
+}
+.setup__row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip-opt {
+  flex: 1;
+  min-width: 64px;
+  background: var(--pill);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 0;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.chip-opt:hover {
+  background: var(--pill-hover);
+}
+.chip-opt.on {
+  background: var(--gold);
+  color: #1a1500;
+  border-color: var(--gold);
+}
+.setup__note {
+  font-size: 13px;
+  color: var(--faint);
+  line-height: 1.5;
+}
+.setup__go {
+  margin-top: 4px;
+}
+
+/* ---------- top bar ---------- */
+.topbar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.topbar__stakes {
+  font-size: 11px;
+  color: var(--faint);
+  letter-spacing: 0.02em;
+}
+.link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px;
+}
+.link:hover {
+  color: var(--text);
+}
+.link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ---------- felt ---------- */
+.felt {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 22px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.felt__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+.seat--folded {
+  opacity: 0.4;
+}
+.seat__avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  position: relative;
+  border: 2px solid var(--line);
+}
+.seat__avatar.sm {
+  width: 30px;
+  height: 30px;
+  font-size: 17px;
+  border-width: 1px;
+}
+.dealer {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Poppins", sans-serif;
+}
+.seat__avatar.sm .dealer {
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  right: -3px;
+  bottom: -3px;
+}
+.seat__name {
+  font-size: 13px;
+  color: var(--muted);
+}
+.seat__chips {
+  font-size: 17px;
+  font-weight: 600;
+}
+.seat__bet {
+  margin-top: 2px;
+  font-size: 11px;
+  color: #1a1500;
+  background: var(--gold);
+  border-radius: 8px;
+  padding: 1px 8px;
+  font-weight: 700;
+}
+
+.bot-turn {
+  text-align: right;
+  max-width: 180px;
+}
+.bot-turn__act {
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.bot-turn__reason {
+  font-size: 11px;
+  color: var(--faint);
+  font-style: italic;
+  margin-top: 2px;
+}
+.bot-turn__idle {
+  font-size: 12px;
+  color: var(--faint);
+}
+.reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.reveal__cards {
+  display: flex;
+  gap: 6px;
+}
+.reveal__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold);
+  text-transform: capitalize;
+}
+
+/* board */
+.board-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.board {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.pot {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.pot__label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+}
+.pot__val {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.card {
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 9px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.card--md {
+  width: 52px;
+  height: 72px;
+}
+.card--lg {
+  width: 66px;
+  height: 92px;
+}
+.card--sm {
+  width: 38px;
+  height: 54px;
+  border-radius: 7px;
+}
+.card--red {
+  color: var(--red);
+}
+.card__rank {
+  font-weight: 700;
+  line-height: 1;
+}
+.card--md .card__rank {
+  font-size: 24px;
+}
+.card--lg .card__rank {
+  font-size: 32px;
+}
+.card--sm .card__rank {
+  font-size: 17px;
+}
+.card__suit {
+  line-height: 1;
+  margin-top: 3px;
+}
+.card--md .card__suit {
+  font-size: 18px;
+}
+.card--lg .card__suit {
+  font-size: 24px;
+}
+.card--sm .card__suit {
+  font-size: 13px;
+  margin-top: 1px;
+}
+.card--back {
+  background: repeating-linear-gradient(45deg, #3a3a40 0 7px, #2a2a2f 7px 14px);
+  box-shadow: none;
+}
+.card--slot {
+  background: transparent;
+  border: 1.5px dashed #34343a;
+  box-shadow: none;
+}
+
+/* hero */
+.felt__bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.hero-hand {
+  display: flex;
+  gap: 8px;
+}
+.hero-info {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.hero-info__label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--gold);
+}
+.hero-info__seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-info__chips {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* controls */
+.controls {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  min-height: 52px;
+}
+.pills {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.btn {
+  flex: 1;
+  background: var(--pill);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 15px 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.12s;
+  font-family: "Poppins", sans-serif;
+}
+.btn:hover {
+  background: var(--pill-hover);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.btn--primary {
+  background: var(--gold);
+  color: #1a1500;
+  border-color: var(--gold);
+}
+.btn--primary:hover {
+  background: #f0cf63;
+}
+
+.sizer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sizer input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+}
+.sizer__quick {
+  display: flex;
+  gap: 8px;
+}
+.sizer__quick button {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 10px;
+  padding: 8px 0;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.sizer__quick button:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.result {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.result__who {
+  font-family: "Poppins", sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+}
+.result__who.up {
+  color: var(--up);
+}
+.result__who.down {
+  color: var(--down);
+}
+.result__hands {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+.result__hand b {
+  color: var(--text);
+  text-transform: capitalize;
+}
+.result__why {
+  font-size: 12px;
+  color: var(--faint);
+}
+.result .btn {
+  margin-top: 6px;
+  flex: none;
+  padding-left: 40px;
+  padding-right: 40px;
+}
+.waiting {
+  color: var(--faint);
+}
+.endcard {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.endcard__title {
+  font-family: "Poppins", sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* ledger */
+.ledger {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ledger__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.ledger__name {
+  font-weight: 600;
+  min-width: 96px;
+}
+.ledger__buys {
+  color: var(--faint);
+  font-size: 12px;
+  flex: 1;
+}
+.net {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--muted);
+}
+.net.up {
+  color: var(--up);
+}
+.net.down {
+  color: var(--down);
+}
+.ledger__meta {
+  font-size: 11px;
+  color: var(--faint);
+  text-align: center;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+@media (max-width: 400px) {
+  .card--md {
+    width: 44px;
+    height: 62px;
+  }
+  .card--lg {
+    width: 56px;
+    height: 80px;
+  }
+}

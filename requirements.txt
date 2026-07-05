@@ -1,0 +1,8 @@
+# Poker AI engine — dependencies
+treys>=0.1.8
+fastapi>=0.115.6
+uvicorn>=0.34.0
+pydantic>=2.11
+pytest>=8
+numpy>=2
+pandas>=2
