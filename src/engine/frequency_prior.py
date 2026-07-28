@@ -1,7 +1,7 @@
 import random
 
 
-class NashEquilibriumEngine:
+class FrequencyPriorEngine:
 
     def __init__(self):
 

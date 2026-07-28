@@ -1,7 +1,7 @@
 import random
 
 
-class ThinkingAheadEngine:
+class LineLabeler:
     def __init__(self):
         pass
 

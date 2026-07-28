@@ -15,12 +15,11 @@ from src.engine.bluff_control import BluffControlEngine
 from src.engine.hand_strength import HandStrength
 from src.engine.opponent_model import OpponentModel
 from src.engine.range_model import RangeModel, range_weight_fn
-from src.engine.nash_equilibrium import NashEquilibriumEngine
+from src.engine.frequency_prior import FrequencyPriorEngine
 from src.engine.mixed_strategy import MixedStrategyEngine
 from src.engine.meta_game import MetaGameEngine
 from src.engine.opponent_exploitation import OpponentExploitationEngine
-from src.engine.reinforcement_learning import ReinforcementLearningEngine
-from src.engine.thinking_ahead import ThinkingAheadEngine
+from src.engine.line_labeler import LineLabeler
 from src.engine.bet_sizing import BetSizingEngine
 
 SOFTMAX_TEMP = 0.9
@@ -41,16 +40,14 @@ class RuleBot:
         self.bluff_control = BluffControlEngine()
         self.hand_strength = HandStrength()
         self.range_model = RangeModel()
-        self.nash = NashEquilibriumEngine()
+        self.freq_prior = FrequencyPriorEngine()
         self.mixed = MixedStrategyEngine()
         self.meta = MetaGameEngine()
         self.exploitation = OpponentExploitationEngine()
-        self.rl = ReinforcementLearningEngine()
-        self.thinking_ahead = ThinkingAheadEngine()
+        self.line_labeler = LineLabeler()
         self.bet_sizing = BetSizingEngine()
 
         self.opponents = {}
-        self._rl_pending = []
 
     # ------------------------------------------------------------------ #
     def opponent(self, name):
@@ -66,9 +63,7 @@ class RuleBot:
         self.opponent(name).new_hand()
 
     def settle_hand(self, reward):
-        for state, tag in self._rl_pending:
-            self.rl.update(state, tag, reward)
-        self._rl_pending.clear()
+        return
 
     # ------------------------------------------------------------------ #
     def decide(self, hand_or_view, board=None, pot=10, call_cost=2,
@@ -122,18 +117,16 @@ class RuleBot:
         fold_prob = max(0.03, min(0.9, fold_prob))
 
         # ---- higher-level reads --------------------------------------
-        ta = self.thinking_ahead.evaluate_line(equity, hs, fold_prob,
+        ta = self.line_labeler.evaluate_line(equity, hs, fold_prob,
                                                opp.style, pot, aggr)
         base_line = ta["best_line"]                       # value / bluff / trap
         line = self.mixed.choose_line(base_line, equity, fold_prob,
                                       position, opp.leaks)
         meta = self.meta.get_profile(name)
-        rl_state = self.rl.encode_state(equity, hs, position, opp.style)
-        rl_adj = self.rl.get_adjustment(rl_state)
         exploit = self.exploitation.exploit_score(name)
         pos_mod = self.position_engine.strategy_modifier(position)
-        stage = self.nash.get_stage(board)
-        nash_freq = self.nash.strategy_table.get(stage, self.nash.strategy_table["flop"])
+        stage = self.freq_prior.get_stage(board)
+        prior_freq = self.freq_prior.strategy_table.get(stage, self.freq_prior.strategy_table["flop"])
         realize = self._realize(position, street, draws)
 
         # ---- candidate actions with EV -------------------------------
@@ -155,18 +148,16 @@ class RuleBot:
         for c, w in zip(cands, weights):
             tag = c["tag"]
             m = 1.0
-            m *= 1.0 + 0.6 * nash_freq.get(self._nash_key(tag), 0.1)   # Nash prior
+            m *= 1.0 + 0.6 * prior_freq.get(self._prior_key(tag), 0.1)   # frequency prior
             if self._line_matches(tag, line):
                 m *= 1.5                                               # mixed-strategy line
             if tag == "bluff":
                 m *= max(0.4, 1.0 - meta["bluff_penalty"])            # meta-game
-                m *= 1.0 + rl_adj["bluff_bias"]                        # RL
                 m *= 1.0 + max(-0.4, exploit)                          # exploitation
                 m *= 1.0 + pos_mod["bluff_bias"]                       # position
                 m *= max(0.1, bluff_mult)                              # opponent fold tendency
             elif tag == "value":
                 m *= 1.0 + meta["value_bonus"]
-                m *= 1.0 + rl_adj["value_bias"]
                 m *= 1.0 + max(0.0, exploit)
                 m *= 1.0 + pos_mod["value_bias"]
                 m *= max(0.4, value_mult)
@@ -174,8 +165,6 @@ class RuleBot:
                 m *= 1.0 + meta["aggression_shift"]
                 if prof["maniac"]:
                     m *= 1.6                     # let the maniac bet for us
-            elif tag == "fold":
-                m *= 1.0 + rl_adj["fold_bias"]
             m *= self._leak_multiplier(tag, opp.leaks)                # leaks
             blended.append(max(1e-6, w * m))
 
@@ -219,7 +208,6 @@ class RuleBot:
 
         amount = self._final_amount(chosen, view, equity, hs, fold_prob)
 
-        self._rl_pending.append((rl_state, chosen["tag"]))
         if chosen["tag"] == "bluff":
             self.bluff_control.register_bluff(self.opponent(name).hands_played)
 
@@ -341,7 +329,7 @@ class RuleBot:
         return "value"
 
     @staticmethod
-    def _nash_key(tag):
+    def _prior_key(tag):
         return {"value": "value", "trap": "value", "bluff": "bluff",
                 "call": "call", "passive": "call", "fold": "fold"}.get(tag, "call")
 
