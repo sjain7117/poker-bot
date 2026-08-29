@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: poker-bot-api
+    runtime: python
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.4
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: SESSION_TTL_SECONDS
+        value: 3600
+      - key: MAX_SESSIONS
+        value: 200
+
+  - type: web
+    name: poker-bot-ui
+    runtime: static
+    branch: main
+    rootDir: poker-ui
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

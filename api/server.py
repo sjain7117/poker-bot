@@ -7,15 +7,29 @@ to zero it automatically re-buys for another full stack, and the ledger tracks
 each seat's buy-ins, current chips, and net cash position so you always know
 who's actually up or down across re-buys.
 
+Every request carries an X-Session-Id header identifying one player's table,
+so concurrent players never share a game. Sessions are held in memory and are
+dropped after SESSION_TTL_SECONDS of inactivity, or when MAX_SESSIONS is
+exceeded (oldest first). A request for a session that no longer exists gets a
+409 rather than a silently regenerated game.
+
 Endpoints:
+  GET  /health                   liveness, does not create a session
   POST /start   {stack, buyin}   begin a new session at these stakes
   POST /action  {kind, amount?}  you act; the bot auto-plays to your next turn
   POST /next                     deal the next hand (re-buys a busted seat)
   POST /stop                     end the session (returns final ledger)
   GET  /state                    current state
 """
-from fastapi import FastAPI
+import os
+import threading
+import time
+import uuid
+from collections import OrderedDict
+
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 from treys import Card
@@ -27,10 +41,16 @@ from src.bots.rule_bot import RuleBot
 SB, BB = 1, 2
 SUITS = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
 
+SESSION_TTL = int(os.environ.get("SESSION_TTL_SECONDS", "3600"))
+MAX_SESSIONS = int(os.environ.get("MAX_SESSIONS", "200"))
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()
+]
+
 app = FastAPI()
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-    allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware, allow_origins=ALLOWED_ORIGINS, allow_credentials=False,
+    allow_methods=["*"], allow_headers=["*"], expose_headers=["X-Session-Id"],
 )
 
 
@@ -187,44 +207,103 @@ class GameSession:
         return out
 
 
-SESSION = {"game": None}
+_lock = threading.Lock()
+_sessions = OrderedDict()
+
+EXPIRED = {
+    "error": "Session expired. The free server sleeps after 15 minutes idle, "
+             "which clears any game in progress. Start a new game.",
+    "expired": True,
+}
 
 
-def _game():
-    if SESSION["game"] is None:
-        SESSION["game"] = GameSession()
-    return SESSION["game"]
+def _sweep(now):
+    dead = [sid for sid, (_, seen) in _sessions.items() if now - seen > SESSION_TTL]
+    for sid in dead:
+        del _sessions[sid]
+    while len(_sessions) > MAX_SESSIONS:
+        _sessions.popitem(last=False)
+
+
+def _get(sid):
+    now = time.time()
+    _sweep(now)
+    if not sid or sid not in _sessions:
+        return None
+    game, _ = _sessions[sid]
+    _sessions[sid] = (game, now)
+    _sessions.move_to_end(sid)
+    return game
+
+
+def _put(sid, game):
+    now = time.time()
+    _sessions[sid] = (game, now)
+    _sessions.move_to_end(sid)
+    _sweep(now)
+
+
+def _expired():
+    return JSONResponse(status_code=409, content=EXPIRED)
+
+
+def _reply(sid, game):
+    payload = game.state()
+    payload["session_id"] = sid
+    return payload
+
+
+@app.get("/health")
+def health():
+    with _lock:
+        return {"ok": True, "sessions": len(_sessions)}
 
 
 @app.post("/start")
-def start(req: StartReq):
-    SESSION["game"] = GameSession(stack=req.stack, buyin=req.buyin)
-    return SESSION["game"].state()
+def start(req: StartReq, x_session_id: Optional[str] = Header(default=None)):
+    sid = x_session_id or uuid.uuid4().hex
+    with _lock:
+        game = GameSession(stack=req.stack, buyin=req.buyin)
+        _put(sid, game)
+        return _reply(sid, game)
 
 
 @app.post("/action")
-def action(a: Action):
-    g = _game()
-    g.hero_action(a.kind, a.amount)
-    return g.state()
+def action(a: Action, x_session_id: Optional[str] = Header(default=None)):
+    with _lock:
+        game = _get(x_session_id)
+        if game is None:
+            return _expired()
+        game.hero_action(a.kind, a.amount)
+        return _reply(x_session_id, game)
 
 
 @app.post("/next")
-def next_hand():
-    g = _game()
-    if not g.stopped:
-        g.table.end_hand_and_rotate()
-        g.new_hand()
-    return g.state()
+def next_hand(x_session_id: Optional[str] = Header(default=None)):
+    with _lock:
+        game = _get(x_session_id)
+        if game is None:
+            return _expired()
+        if not game.stopped:
+            game.table.end_hand_and_rotate()
+            game.new_hand()
+        return _reply(x_session_id, game)
 
 
 @app.post("/stop")
-def stop():
-    g = _game()
-    g.stopped = True
-    return g.state()
+def stop(x_session_id: Optional[str] = Header(default=None)):
+    with _lock:
+        game = _get(x_session_id)
+        if game is None:
+            return _expired()
+        game.stopped = True
+        return _reply(x_session_id, game)
 
 
 @app.get("/state")
-def state():
-    return _game().state()
+def state(x_session_id: Optional[str] = Header(default=None)):
+    with _lock:
+        game = _get(x_session_id)
+        if game is None:
+            return _expired()
+        return _reply(x_session_id, game)

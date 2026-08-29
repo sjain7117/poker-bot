@@ -1,7 +1,17 @@
 import { useState, useCallback } from "react";
 import "./App.css";
 
-const API = "http://localhost:8000";
+const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const SID_KEY = "poker-session-id";
+
+function sessionId() {
+  let id = localStorage.getItem(SID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(SID_KEY, id);
+  }
+  return id;
+}
 const RANKS = "23456789TJQKA";
 
 /* ---------- card ---------- */
@@ -105,22 +115,39 @@ export default function App() {
   const [s, setS] = useState(null);
   const [bet, setBet] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [waking, setWaking] = useState(false);
 
   const call = useCallback(async (path, body) => {
     setBusy(true);
+    const slow = setTimeout(() => setWaking(true), 3000);
     try {
       const res = await fetch(API + path, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionId(),
+        },
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await res.json();
+      if (res.status === 409) {
+        localStorage.removeItem(SID_KEY);
+        setScreen("setup");
+        setS({ error: data.error });
+        return null;
+      }
       setS(data);
       setBet(0);
       return data;
     } catch {
-      setS({ error: "Can't reach the table. Is the server running on :8000?" });
+      setS({
+        error:
+          "Can't reach the table. The server may be waking up — try again in a minute.",
+      });
+      return null;
     } finally {
+      clearTimeout(slow);
+      setWaking(false);
       setBusy(false);
     }
   }, []);
@@ -139,6 +166,11 @@ export default function App() {
     return (
       <div className="app">
         {s?.error && <div className="toast">{s.error}</div>}
+        {waking && (
+          <div className="toast">
+            Waking the server — the first request after idle takes about a minute.
+          </div>
+        )}
         <Setup onStart={startGame} busy={busy} />
       </div>
     );
@@ -188,6 +220,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {waking && (
+        <div className="toast">
+          Waking the server — the first request after idle takes about a minute.
+        </div>
+      )}
       {/* top bar */}
       <div className="topbar">
         <button className="link" onClick={() => setScreen("setup")}>
