@@ -5,6 +5,14 @@ cash-game hands against **RuleBot**, a rule-based / exploitative poker bot.
 Python game engine + decision logic on the backend (FastAPI), React on the
 frontend.
 
+**Play it: [poker-bot-ui.onrender.com](https://poker-bot-ui.onrender.com)**
+
+> Hosted on Render's free tier, so the API sleeps after 15 minutes of inactivity.
+> The page loads instantly, but the first **Start game** click after an idle
+> period takes roughly a minute while the backend wakes up. Sessions are held in
+> memory, so a game in progress does not survive that sleep — you are returned to
+> the lobby to start a fresh one.
+
 Set your stakes, play hands against the bot, and watch a live ledger track who's
 up or down across re-buys. The bot estimates equity with Monte Carlo simulation,
 compares expected value across its legal actions, and profiles how *you* play
@@ -13,7 +21,10 @@ how aggressively you've been playing.
 
 ## Quick start
 
-You need **Python 3.10+** and **Node.js 18+**. Two terminals.
+You need **Python 3.13+** and **Node.js 18+**. Two terminals.
+
+Tested on Python 3.13 and 3.14; CI runs 3.13 and the deployed API pins
+3.13.4 (see `render.yaml`). Older 3.x versions may work but are untested.
 
 ### 1. Backend — Terminal 1
 
@@ -39,10 +50,16 @@ that's expected; /start is a POST the app calls for you.
 
 ### Tests
 
+    python3 -m pip install -r requirements-dev.txt
     python3 tests/test_engine.py
+    python3 tests/test_sessions.py
 
-Covers chip conservation across a hand, legal-action correctness, all-in
-uncalled-excess refund, blind/position order, and pot zeroing after settlement.
+The engine tests cover chip conservation across a hand, legal-action
+correctness, all-in uncalled-excess refund, blind/position order, and pot zeroing
+after settlement. The session tests cover the API layer: per-client isolation,
+409s for unknown or missing session ids, and TTL / max-session eviction.
+These also run in CI on every push (see `.github/workflows/tests.yml`), alongside
+a frontend build check.
 
 ## How the bot works
 
@@ -81,11 +98,42 @@ line_labeler picks a one-street line label). It will beat casual and intermediat
 play; it is not claimed to be optimal. Natural next steps: real preflop range
 charts, multi-street lookahead, and a CFR solve for specific spots.
 
+## Deployment
+
+Both services are defined in `render.yaml` as a Render Blueprint and deploy
+automatically on every push to `main`:
+
+| Service | Type | Notes |
+|---|---|---|
+| `poker-bot-api` | Python web service | `uvicorn api.server:app`, health check at `/health` |
+| `poker-bot-ui` | Static site | Vite build of `poker-ui/`, served from CDN |
+
+Two environment variables are set in the Render dashboard rather than committed:
+`ALLOWED_ORIGINS` on the API (the frontend origin, for CORS) and `VITE_API_URL`
+on the UI (the API origin). `VITE_API_URL` is inlined by Vite at build time, so
+changing it requires a rebuild, not a restart.
+
+### Session handling
+
+Each player gets an `X-Session-Id` header, generated client-side and stored in
+`localStorage`, that keys their own `GameSession` on the server. Without this,
+one global game object would be shared by every visitor — concurrent players
+would mutate each other's table, and the bot's opponent model would blend all of
+their playing styles into a single phantom read.
+
+Sessions live in process memory and are evicted after an hour idle or once 200
+are open, oldest first. A request for a session that no longer exists returns
+`409` and sends the player back to the lobby, rather than silently constructing a
+fresh game at default stakes — a wrong answer that looks like a right one is
+worse than a visible error.
+
 ## Project structure
 
     api/                 FastAPI server (game session, ledger, endpoints)
     main.py              Offline harness: play the bot vs scripted baselines
     tests/test_engine.py Engine correctness tests
+    tests/test_sessions.py  API session isolation / eviction tests
+    render.yaml          Render Blueprint: API web service + static frontend
     src/
       bots/rule_bot.py   Decision engine, orchestrates the components below
       engine/

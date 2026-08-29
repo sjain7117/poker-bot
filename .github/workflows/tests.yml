@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Verify test suite is present
+        run: test -f tests/test_engine.py && test -f tests/test_sessions.py
+
+      - name: Run engine tests
+        run: python tests/test_engine.py
+
+      - name: Run session tests
+        run: python tests/test_sessions.py
+
+  ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: poker-ui/package-lock.json
+
+      - name: Install dependencies
+        working-directory: poker-ui
+        run: npm ci
+
+      - name: Build
+        working-directory: poker-ui
+        run: npm run build

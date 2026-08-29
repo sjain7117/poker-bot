@@ -1,0 +1,9 @@
+# Test-only dependencies. requirements.txt is what Render installs; nothing
+# here ships to production.
+-r requirements.txt
+
+# fastapi.testclient needs an httpx. Starlette >= 1.0 prefers httpx2 and warns
+# when it falls back to httpx; older Starlette only knows httpx. Both are
+# listed so the tests run clean on either.
+httpx>=0.27
+httpx2>=0.28

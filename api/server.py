@@ -41,8 +41,24 @@ from src.bots.rule_bot import RuleBot
 SB, BB = 1, 2
 SUITS = {"s": "♠", "h": "♥", "d": "♦", "c": "♣"}
 
-SESSION_TTL = int(os.environ.get("SESSION_TTL_SECONDS", "3600"))
-MAX_SESSIONS = int(os.environ.get("MAX_SESSIONS", "200"))
+
+def _int_env(name, default, minimum=None):
+    """Read an int env var, falling back to the default if it is malformed.
+
+    A typo in the Render dashboard should not take the service down with a
+    traceback at import time.
+    """
+    try:
+        val = int(os.environ[name])
+    except (KeyError, ValueError):
+        val = default
+    if minimum is not None and val < minimum:
+        val = minimum
+    return val
+
+
+SESSION_TTL = _int_env("SESSION_TTL_SECONDS", 3600)
+MAX_SESSIONS = _int_env("MAX_SESSIONS", 200, minimum=1)
 ALLOWED_ORIGINS = [
     o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()
 ]
