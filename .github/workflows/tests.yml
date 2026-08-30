@@ -20,13 +20,16 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       - name: Verify test suite is present
-        run: test -f tests/test_engine.py && test -f tests/test_sessions.py
+        run: test -f tests/test_engine.py && test -f tests/test_sessions.py && test -f tests/test_opponent_model.py
 
       - name: Run engine tests
         run: python tests/test_engine.py
 
       - name: Run session tests
         run: python tests/test_sessions.py
+
+      - name: Run opponent model tests
+        run: python tests/test_opponent_model.py
 
   ui:
     runs-on: ubuntu-latest

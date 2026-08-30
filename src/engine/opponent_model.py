@@ -1,3 +1,8 @@
+# af is a ratio of postflop actions, so it says nothing until some have
+# been seen. Leaks that read it stay off until this many.
+MIN_AF_ACTIONS = 5
+
+
 class OpponentModel:
     def __init__(self, name):
         self.name = name
@@ -9,9 +14,11 @@ class OpponentModel:
 
         self.preflop_raises = 0
         self.preflop_calls = 0
+        self.vpip_hands = 0
 
         self.postflop_raises = 0
         self.postflop_calls = 0
+        self.postflop_actions = 0
         self.checks = 0
 
         self.folds = 0
@@ -30,6 +37,7 @@ class OpponentModel:
         # -------------------------
         self.leaks = []
         self._vpip_counted = False
+        self._pfr_counted = False
 
         # richer in-session signals for real opponent adaptation
         self.aggressive_actions = 0     # bets + raises
@@ -45,6 +53,7 @@ class OpponentModel:
         # per-hand, not per-action
         self.hands_played += 1
         self._vpip_counted = False
+        self._pfr_counted = False
 
     def update(self, action, street="preflop"):
         self.total_decisions += 1
@@ -57,11 +66,20 @@ class OpponentModel:
 
         if street == "preflop":
             if action in ("raise", "bet"):
-                self.preflop_raises += 1
+                if not self._pfr_counted:
+                    self.preflop_raises += 1
+                    self._pfr_counted = True
+                if not self._vpip_counted:
+                    self.vpip_hands += 1
+                    self._vpip_counted = True
             elif action == "call":
-                self.preflop_calls += 1
+                if not self._vpip_counted:
+                    self.preflop_calls += 1
+                    self.vpip_hands += 1
+                    self._vpip_counted = True
 
         else:
+            self.postflop_actions += 1
             if action in ("raise", "bet"):
                 self.postflop_raises += 1
             elif action == "call":
@@ -81,12 +99,10 @@ class OpponentModel:
         if self.hands_played == 0:
             return
 
-        preflop_total = self.preflop_raises + self.preflop_calls
+        # VPIP = fraction of hands voluntarily entered
+        self.vpip = self.vpip_hands / self.hands_played
 
-        # VPIP = voluntarily entered pot
-        self.vpip = preflop_total / self.hands_played
-
-        # PFR = preflop raise frequency
+        # PFR = fraction of hands raised preflop
         self.pfr = self.preflop_raises / self.hands_played
 
         # Aggression Factor (postflop)
@@ -127,9 +143,10 @@ class OpponentModel:
     def detect_leaks(self):
 
         self.leaks = []
+        af_ready = self.postflop_actions >= MIN_AF_ACTIONS
 
         # OVERFOLDING
-        if self.vpip < 0.25 and self.af < 0.8:
+        if af_ready and self.vpip < 0.25 and self.af < 0.8:
             self.leaks.append("OVERFOLDING")
 
         # CALLING STATION
@@ -141,7 +158,7 @@ class OpponentModel:
             self.leaks.append("NIT")
 
         # OVER AGGRESSIVE
-        if self.pfr > 0.30 and self.af > 1.8:
+        if af_ready and self.pfr > 0.30 and self.af > 1.8:
             self.leaks.append("OVERAGGRESSIVE")
 
     # -------------------------
